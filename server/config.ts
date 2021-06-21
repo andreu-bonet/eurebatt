@@ -12,7 +12,7 @@ const config = convict({
 	esp32: {
 		ip: {
 			format: String,
-			default: null,
+			default: '172.0.0.1',
 			env: 'ESP32_IP'
 		}
 	}
@@ -20,4 +20,4 @@ const config = convict({
 
 config.validate({ allowed: 'strict' })
 
-export default config
+export { config }

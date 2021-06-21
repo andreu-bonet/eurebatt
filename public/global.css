@@ -12,7 +12,8 @@
 	outline: none;
 }
 
-html, body {
+html,
+body {
 	margin: 0;
 	padding: 0;
 	height: 100%;
@@ -22,10 +23,13 @@ html, body {
 body {
 	display: flex;
 	justify-content: center;
-	font-family: 'Roboto', sans-serif
+	font-family: 'Roboto', sans-serif;
 }
 
-input, button, select, textarea {
+input,
+button,
+select,
+textarea {
 	font-family: inherit;
 	font-size: inherit;
 }

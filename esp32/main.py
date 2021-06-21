@@ -6,14 +6,12 @@ from time import ticks_ms
 from utime import ticks_add
 from utime import ticks_diff
 
-
 class Stepper:
-	def __init__(self, stp_pin, dir_pin, pow_pin, step_sleep_us=1000, full_rev=360, step_angle=1.8, pitch_mm=8, microstepping=32):
+	def __init__(self, stp_pin, dir_pin, pow_pin, microstepping):
 		self.stp = Pin(stp_pin, Pin.OUT)
 		self.dir = Pin(dir_pin, Pin.OUT)
 		self.pow = Pin(pow_pin, Pin.OUT, value=0)
-		self.step_sleep_us = step_sleep_us
-		self.steps_per_mm = ((full_rev / step_angle) / pitch_mm) * microstepping
+		self.microstepping = microstepping
 
 	def power_on(self):
 		self.pow.value(0)
@@ -24,16 +22,37 @@ class Stepper:
 	def set_direction(self, direction):
 		self.dir.value(direction)
 
-	def rotate_steps(self, steps):
+	def rotate_steps(self, steps, rpm):
+		if steps < 0:
+			self.set_direction(0)
+		else:
+			self.set_direction(1)
+
+		sleep_duration_us = 150000 // rpm
+
 		for i in range(abs(steps)):
 			self.stp.value(1)
-			sleep_us(self.step_sleep_us)
+			sleep_us(sleep_duration_us)
 			self.stp.value(0)
-			sleep_us(self.step_sleep_us)
+			sleep_us(sleep_duration_us)
 
-	def rotate_mm(self, mm):
+	def rotate_mm(self, mm, rpm):
 		self.power_on()
-		self.rotate_steps(mm * self.steps_per_mm)
+		# full_rev = 360
+		# step_angle = 1.8
+		# pitch_mm = 8
+		# steps_per_mm = (full_rev / step_angle) / pitch_mm
+		steps_per_mm = 25
+		steps = mm * steps_per_mm * self.microstepping
+		self.rotate_steps(steps, rpm)
+		self.power_off()
+
+	def rotate_ms(self, duration_ms, rpm):
+		self.power_on()
+		self.set_direction(1)
+		deadline = ticks_add(ticks_ms(), duration_ms)
+		while ticks_diff(deadline, ticks_ms()) > 0:
+			self.rotate_steps(1, rpm)
 		self.power_off()
 
 class Single:
@@ -54,7 +73,9 @@ class Single:
 
 	def activate(self, duration_ms):
 		self.engage()
-		sleep_ms(duration_ms)
+		deadline = ticks_add(ticks_ms(), duration_ms)
+		while ticks_diff(deadline, ticks_ms()) > 0:
+			pass
 		self.disengage()
 
 class Endpoint:
@@ -63,43 +84,6 @@ class Endpoint:
 
 	def status(self):
 		return self.pin.value()
-
-
-stirrer_stepper = Stepper(stp_pin=19, dir_pin=21, pow_pin=18)
-sampler_stepper = Stepper(stp_pin= 2, dir_pin= 4, pow_pin=15, step_sleep_us=10)
-syringe_stepper = Stepper(stp_pin=32, dir_pin= 5, pow_pin=33)
-perist_pump = Single(pin=26, engage_value=0, disengage_value=1)
-catho_valve = Single(pin=27, engage_value=1, disengage_value=0)
-anode_valve = Single(pin=14, engage_value=1, disengage_value=0)
-endpoint = Endpoint(pin=25)
-
-def zeroing_sampler():
-	sampler_stepper.set_direction(1)
-	sampler_stepper.power_on()
-	while endpoint.status() == 1:
-		sampler_stepper.rotate_steps(1)
-	sampler_stepper.power_off()
-
-def setup():
-	stirrer_stepper.power_off()
-	sampler_stepper.power_off()
-	syringe_stepper.power_off()
-	perist_pump.disengage()
-	catho_valve.disengage()
-	anode_valve.disengage()
-
-def stiring(duration_ms):
-	stirrer_stepper.power_on()
-	stirrer_stepper.set_direction(1)
-	deadline = ticks_add(ticks_ms(), duration_ms)
-	while ticks_diff(deadline, ticks_ms()) > 0:
-		stirrer_stepper.rotate_steps(1)
-	stirrer_stepper.power_off()
-
-def sleep_ms(ms):
-	deadline = ticks_add(ticks_ms(), ms)
-	while ticks_diff(deadline, ticks_ms()) > 0:
-		pass
 
 def wifiConnect(ssid, password):
 	station = network.WLAN(network.STA_IF)
@@ -117,48 +101,79 @@ def wifiConnect(ssid, password):
 
 	return station.ifconfig()
 
-setup()
+# Component declarations
+stirrer_stepper = Stepper(stp_pin=19, dir_pin=21, pow_pin=18, microstepping=1)
+syringe_stepper = Stepper(stp_pin=32, dir_pin= 5, pow_pin=33, microstepping=32)
+sampler_stepper = Stepper(stp_pin= 2, dir_pin= 4, pow_pin=15, microstepping=32)
+perist_pump = Single(pin=26, engage_value=0, disengage_value=1)
+catho_valve = Single(pin=27, engage_value=1, disengage_value=0)
+anode_valve = Single(pin=14, engage_value=1, disengage_value=0)
+endpoint = Endpoint(pin=25)
 
-ifconfig = wifiConnect('Eurecat_Lab', 'Eureca2021!')
+# Setup
+stirrer_stepper.power_off()
+sampler_stepper.power_off()
+syringe_stepper.power_off()
+perist_pump.disengage()
+catho_valve.disengage()
+anode_valve.disengage()
 
-print(ifconfig)
+# Wifi Connect
+print(wifiConnect('Eurecat_Lab', 'Eureca2021!'))
 
+# Socket open
 socket = usocket.socket(usocket.AF_INET, usocket.SOCK_STREAM)
 socket.bind(('', 3000))
 socket.listen(5)
 
+# Infinite listening loop
 while True:
+	# Read http request and parse command
 	conn, addr = socket.accept()
 	payload = conn.recv(1024).decode('utf-8')
 	command = payload.split('\r\n')[-1].split(' ')
-	
 	print(command)
 
-	if command[0] == 'stiring':
-		stiring(int(command[1]))
+	# Switch by command type
+	if command[0] == 'stirring':
+		duration_ms = int(command[1])
+		rpm = 150
+		if len(command) > 2:
+			rpm = int(command[2])
+		stirrer_stepper.rotate_ms(duration_ms, rpm)
+
+	elif command[0] == 'cathode':
+		duration_ms = int(command[1])
+		catho_valve.activate(duration_ms)
+
+	elif command[0] == 'anode':
+		duration_ms = int(command[1])
+		anode_valve.activate(duration_ms)
+
+	elif command[0] == 'peristaltic':
+		duration_ms = int(command[1])
+		perist_pump.activate(duration_ms)
+
+	elif command[0] == 'syringe':
+		steps = int(command[1])
+		mm = steps // 800
+		rpm = 150 # int(command[2])
+		syringe_stepper.rotate_mm(mm, rpm)
 
 	elif command[0] == 'autosampler':
-		sampler_stepper.set_direction(int(command[1]))
-		sampler_stepper.rotate_mm(int(command[2]))
-
-	elif command[0] == 'syringepump':
-		syringe_stepper.set_direction(int(command[1]))
-		syringe_stepper.power_on()
-		syringe_stepper.rotate_steps(int(command[2]))
-		syringe_stepper.power_off()
-
-	elif command[0] == 'valvecathode':
-		catho_valve.activate(int(command[1]))
-
-	elif command[0] == 'valveanode':
-		anode_valve.activate(int(command[1]))
-
-	elif command[0] == 'peristalticpump':
-		perist_pump.activate(int(command[1]))
+		mm = int(command[1])
+		rpm = 15000 # int(command[2])
+		sampler_stepper.rotate_mm(mm, rpm)
 
 	elif command[0] == 'autosampler_zeroing':
-		zeroing_sampler()
+		rpm = int(command[1])
+		sampler_stepper.set_direction(1)
+		sampler_stepper.power_on()
+		while endpoint.status() == 1:
+			sampler_stepper.rotate_steps(1, rpm)
+		sampler_stepper.power_off()
 
+	# Send http 200 response when done
 	conn.send('HTTP/1.1 200 OK\n')
 	conn.send('Content-Type: text/plain\n')
 	conn.send('Connection: close\n\n')

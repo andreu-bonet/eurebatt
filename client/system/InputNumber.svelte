@@ -1,26 +1,21 @@
 <script>
-	export let wait;
-	export let unit;
-	export let value;
+	export let wait
+	export let unit
+	export let value
+	export let min
+	export let max
 
 	function add() {
-		if (wait) return;
-		if (unit === "miliseconds") {
-			value += 1000;
-		} else {
-			value++;
-		}
+		if (wait) return
+		value += 1
 	}
 
 	function sub() {
-		if (wait) return;
-		if (unit === "miliseconds") {
-			value -= 1000;
-			if (value < 0) value = 0;
-		} else {
-			value--;
-		}
+		if (wait) return
+		value -= 1
 	}
+
+	$: value = value > max ? max : value < min ? min : value
 </script>
 
 <inputNumber style="--unit: '{unit}'">
@@ -32,14 +27,14 @@
 </inputNumber>
 
 <style>
-	input[type="number"]::-webkit-inner-spin-button,
-	input[type="number"]::-webkit-outer-spin-button {
+	input[type='number']::-webkit-inner-spin-button,
+	input[type='number']::-webkit-outer-spin-button {
 		-webkit-appearance: none;
 		margin: 0;
 	}
-	input[type="number"] {
+	input[type='number'] {
 		-moz-appearance: textfield;
-		font-family: "Roboto", sans-serif;
+		font-family: 'Roboto', sans-serif;
 	}
 	.wrapper {
 		position: relative;

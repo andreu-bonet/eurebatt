@@ -1,73 +1,85 @@
 <script>
-	import Title from "./Title.svelte";
-	import InputCustom from "./InputCustom.svelte";
+	import InputCustom from './InputCustom.svelte'
 
-	export let socket;
-	export let wait;
+	export let socket
+	export let wait
 </script>
 
-<sysyemControl>
-	<Title text="System control" />
+<div class="main">
 	<InputCustom
 		{socket}
-		command={"stiring"}
+		command={'stirring'}
 		{wait}
-		text="Stiring time"
-		unit="miliseconds"
+		text="Stirring time"
+		unit="ms"
 		value={5000}
+		min={1000}
+		max={3600000}
 	/>
 	<InputCustom
 		{socket}
-		command={"cathode"}
+		command={'cathode'}
 		{wait}
 		text="Cathode valve"
-		unit="miliseconds"
+		unit="ms"
 		value={5000}
+		min={1000}
+		max={3600000}
 	/>
 	<InputCustom
 		{socket}
-		command={"anode"}
+		command={'anode'}
 		{wait}
 		text="Anode valve"
-		unit="miliseconds"
+		unit="ms"
 		value={5000}
+		min={1000}
+		max={3600000}
 	/>
 	<InputCustom
 		{socket}
-		command={"peristaltic"}
+		command={'peristaltic'}
 		{wait}
 		text="Peristaltic pump"
-		unit="miliseconds"
+		unit="ms"
 		value={5000}
+		min={1000}
+		max={3600000}
 	/>
 	<InputCustom
 		{socket}
-		command={"syringe"}
+		command={'syringe'}
 		{wait}
 		text="Syringe pump"
-		unit="milimeters"
+		unit="steps"
 		value={5}
+		min={-100000}
+		max={100000}
 	/>
 	<InputCustom
 		{socket}
-		command={"autosampler"}
+		command={'autosampler'}
 		{wait}
 		text="Autosampler"
 		unit="milimeters"
 		value={5}
+		min={1}
+		max={10}
 	/>
 	<InputCustom
 		{socket}
-		command={"autosampler_zeroing"}
+		command={'autosampler_zeroing'}
 		{wait}
 		text="Autosampler Zeroing"
-		unit="milimeters"
-		value={5}
+		unit="rpm"
+		value={7500}
+		min={1}
+		max={15000}
 	/>
-</sysyemControl>
+</div>
 
 <style>
-	sysyemControl {
+	.main {
 		display: flex;
 		flex-direction: column;
 		align-items: center;

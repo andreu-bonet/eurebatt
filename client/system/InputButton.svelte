@@ -1,12 +1,12 @@
 <script>
-	export let socket;
-	export let command;
-	export let wait;
-	export let value;
-	export let text = "Send";
+	export let socket
+	export let command
+	export let wait
+	export let value
+	export let text = 'Send'
 
 	function send() {
-		socket.emit("command_single", `${command} ${value}`);
+		socket.emit('command_single', `${command} ${value}`)
 	}
 </script>
 
